@@ -1,6 +1,9 @@
 Django>=5.0
 djangorestframework
+djangorestframework-simplejwt
+Pillow
 psycopg2-binary
+psycopg2
 celery
 redis
 django-cors-headers
@@ -11,4 +14,3 @@ pytest-django
 openai
 google-auth
 stripe
-psycopg2
