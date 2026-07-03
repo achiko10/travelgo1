@@ -1,6 +1,11 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, ProfileView, LeaderboardView, ApplyReferralView, SocialLoginView, PasswordResetRequestView, PasswordResetConfirmView, CreatePaymentIntentView
+from .views import (
+    RegisterView, ProfileView, LeaderboardView,
+    ApplyReferralView, MyReferralDashboardView,
+    SocialLoginView, PasswordResetRequestView,
+    PasswordResetConfirmView, CreatePaymentIntentView
+)
 
 urlpatterns = [
     # Auth endpoints
@@ -15,5 +20,8 @@ urlpatterns = [
     # Profile & Leaderboard
     path('profile/', ProfileView.as_view(), name='profile'),
     path('leaderboard/', LeaderboardView.as_view(), name='leaderboard'),
-    path('referral/apply/', ApplyReferralView.as_view(), name='apply_referral'),
+    path('referral/apply/',        ApplyReferralView.as_view(),          name='apply_referral'),
+    path('referral/my-dashboard/', MyReferralDashboardView.as_view(),    name='referral_dashboard'),
+
 ]
+

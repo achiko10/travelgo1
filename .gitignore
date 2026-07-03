@@ -1,21 +1,8 @@
-# Django
-*.log
-*.pot
-*.pyc
-__pycache__/
-local_settings.py
-db.sqlite3
-media/
-static/
-
-# Environment Variables / Virtual Env
-.env
 venv/
-env/
-.venv/
-.idea/
-.vscode/
-
-# Ignore local celery/redis states
-celerybeat-schedule.db
-dump.rdb
+*.pyc
+db.sqlite3
+__pycache__/
+media/
+debug_swagger.py
+save_html.py
+swagger_error.html

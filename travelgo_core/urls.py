@@ -3,6 +3,12 @@ URL configuration for travelgo_core project.
 """
 from django.contrib import admin
 from django.urls import path, include, re_path
+
+# ━━━ Admin Panel Branding ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+admin.site.site_header  = "🗺️ TravelGo — ადმინ პანელი"
+admin.site.site_title   = "TravelGo Admin"
+admin.site.index_title  = "მართვის პანელი"
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -26,9 +32,11 @@ urlpatterns = [
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     
     # API endpoints
-    path('api/users/', include('users.urls')),
-    path('api/maps/', include('maps.urls')),
-    path('api/partners/', include('partners.urls')),
-    path('api/quests/', include('quests.urls')),
+    path('api/users/',     include('users.urls')),
+    path('api/maps/',      include('maps.urls')),
+    path('api/partners/',  include('partners.urls')),
+    path('api/quests/',    include('quests.urls')),
     path('api/inventory/', include('inventory.urls')),
+    path('api/config/',    include('configuration.urls')),
+    path('api/social/',    include('social.urls')),
 ]

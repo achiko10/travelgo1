@@ -76,3 +76,6 @@ class AnalyticsProxy(CustomUser):
         proxy = True
         verbose_name = "მოგზაური (სტატისტიკა)"
         verbose_name_plural = "პლატფორმის ანალიტიკა (Dashboard)"
+
+
+

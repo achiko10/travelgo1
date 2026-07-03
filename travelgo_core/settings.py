@@ -48,6 +48,9 @@ INSTALLED_APPS = [
     'partners',
     'inventory',
     'quests',
+    'project_manager',
+    'configuration',
+    'social',
 ]
 
 AUTH_USER_MODEL = 'users.CustomUser'
@@ -84,12 +87,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'travelgo_core.wsgi.application'
 
 # ─── Database ──────────────────────────────────────────────────────────────────
-# MVP: SQLite — PythonAnywhere Free Tier-ზე სრულიად ვარგა 500 მომხმარებლამდე.
-# მომავალში: PostgreSQL + PostGIS (migrate-ით).
+# Production: PostgreSQL + PostGIS (with SQLite fallback)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis' if os.getenv('DB_HOST') else 'django.db.backends.sqlite3',
+        'NAME': os.getenv('DB_NAME', str(BASE_DIR / 'db.sqlite3')),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', ''),
     }
 }
 
@@ -109,11 +115,36 @@ TIME_ZONE = 'Asia/Tbilisi'
 USE_I18N = True
 USE_TZ = True
 
-# ─── Static Files ──────────────────────────────────────────────────────────────
+# ─── Static and Media Files ────────────────────────────────────────────────────
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Cloudinary Storage for Production Media Files
+try:
+    import cloudinary_storage
+    import cloudinary
+    CLOUDINARY_AVAILABLE = True
+except ImportError:
+    CLOUDINARY_AVAILABLE = False
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME', ''),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY', ''),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET', ''),
+}
+
+if CLOUDINARY_AVAILABLE and CLOUDINARY_STORAGE['CLOUD_NAME'] and CLOUDINARY_STORAGE['API_KEY']:
+    # Inject cloudinary apps into INSTALLED_APPS dynamically
+    if 'cloudinary_storage' not in INSTALLED_APPS:
+        INSTALLED_APPS.insert(INSTALLED_APPS.index('django.contrib.staticfiles'), 'cloudinary_storage')
+    if 'cloudinary' not in INSTALLED_APPS:
+        INSTALLED_APPS.append('cloudinary')
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 # ─── JWT Configuration ─────────────────────────────────────────────────────────
 

@@ -17,14 +17,24 @@ class PointOfInterest(models.Model):
         ('partner', 'პარტნიორი ბიზნესი'),
     )
 
-    name = models.CharField(max_length=200, verbose_name="დასახელება")
-    description = models.TextField(verbose_name="აღწერა (50-120 სიტყვა)")
+    # ── ძირითადი ველები (ქართული — default) ──────────────────────────────────
+    name = models.CharField(max_length=200, verbose_name="დასახელება (KA)")
+    description = models.TextField(verbose_name="აღწერა (KA)")
+    open_hours = models.CharField(max_length=100, blank=True, verbose_name="სამუშაო საათები (KA)")
+
+    # ── ინგლისური ვერსია ──────────────────────────────────────────────────────
+    name_en = models.CharField(max_length=200, blank=True, verbose_name="Name (EN)")
+    description_en = models.TextField(blank=True, verbose_name="Description (EN)")
+    open_hours_en = models.CharField(max_length=100, blank=True, verbose_name="Open Hours (EN)")
+
+    # ── მედია ─────────────────────────────────────────────────────────────────
     photo = models.ImageField(upload_to='pois/', blank=True, null=True, verbose_name="ფოტო")
-    audio_guide = models.FileField(upload_to='audio/', blank=True, null=True, verbose_name="აუდიო გიდი")
-    open_hours = models.CharField(max_length=100, blank=True, verbose_name="სამუშაო საათები")
+    audio_guide = models.FileField(upload_to='audio/', blank=True, null=True, verbose_name="აუდიო გიდი (KA)")
+    audio_guide_en = models.FileField(upload_to='audio/', blank=True, null=True, verbose_name="Audio Guide (EN)")
+
     poi_type = models.CharField(max_length=50, choices=POI_TYPES, verbose_name="ლოკაციის ტიპი")
 
-    # პირველადი კოორდინატები — Float ველები (Haversine Anti-Cheat ამას იყენებს)
+    # ── კოორდინატები ──────────────────────────────────────────────────────────
     latitude = models.FloatField(verbose_name="Latitude (Y)", default=41.7151)
     longitude = models.FloatField(verbose_name="Longitude (X)", default=44.8271)
 
@@ -41,7 +51,8 @@ class PointOfInterest(models.Model):
 
 class RedZone(models.Model):
     """თაღლითების ზონა — Flutter Map-ზე წითლად გამოჩნდება"""
-    name = models.CharField(max_length=100, verbose_name="ზონის სახელი (Scammer Area)")
+    name = models.CharField(max_length=100, verbose_name="ზონის სახელი (KA)")
+    name_en = models.CharField(max_length=100, blank=True, verbose_name="Zone Name (EN)")
     latitude = models.FloatField(default=41.7151)
     longitude = models.FloatField(default=44.8271)
     radius_meters = models.FloatField(default=100.0, verbose_name="რადიუსი მეტრებში")

@@ -14,14 +14,41 @@ from .utils import haversine_distance
 # ─── Maps & Locations ──────────────────────────────────────────────────────────
 
 class POIList(generics.ListAPIView):
-    """GET /api/maps/pois/ — ყველა Point of Interest (ლოკაცია) სიის გამოტანა"""
-    queryset = PointOfInterest.objects.all()
+    """
+    GET /api/maps/pois/ — ყველა POI (ლოკაცია) სიის გამოტანა
+
+    Optional Query Params:
+      ?lat=41.69&lon=44.83&radius=500   → 500მ რადიუსში POI-ები
+      ?poi_type=museum                  → ტიპის მიხედვით ფილტრი
+    """
     serializer_class = POISerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+    def get_queryset(self):
+        qs = PointOfInterest.objects.all()
+
+        # ── ტიპის ფილტრი ──────────────────────────────────────
+        poi_type = self.request.query_params.get('poi_type')
+        if poi_type:
+            qs = qs.filter(poi_type=poi_type)
+
+        # ── დისტანციის ფილტრი (Haversine) ─────────────────────
+        try:
+            lat    = float(self.request.query_params.get('lat'))
+            lon    = float(self.request.query_params.get('lon'))
+            radius = float(self.request.query_params.get('radius', 5000))  # default 5km
+        except (TypeError, ValueError):
+            return qs  # params-ი არ არის — ყველა POI ვაბრუნოთ
+
+        nearby_ids = [
+            poi.id for poi in qs
+            if haversine_distance(lat, lon, poi.latitude, poi.longitude) <= radius
+        ]
+        return qs.filter(id__in=nearby_ids)
+
 
 class RedZoneList(generics.ListAPIView):
-    """GET /api/maps/redzones/ — თაღლითების ზონები (Red Zones) კოორდინატებით"""
+    """GET /api/maps/redzones/ — Anti-Scam Red Zones კოორდინატებით"""
     queryset = RedZone.objects.all()
     serializer_class = RedZoneSerializer
     permission_classes = [permissions.AllowAny]
@@ -30,7 +57,7 @@ class RedZoneList(generics.ListAPIView):
 # ─── Check-In (Anti-Cheat) ─────────────────────────────────────────────────────
 
 class PerformCheckIn(APIView):
-    """POST /api/maps/checkin/ — Check-in + Haversine Anti-Cheat (40მ რადიუსი) + Drop System"""
+    """POST /api/maps/checkin/ — Check-in + Haversine Anti-Cheat (40მ) + Drop System"""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -38,26 +65,29 @@ class PerformCheckIn(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        poi_id = serializer.validated_data['poi_id']
+        poi_id   = serializer.validated_data['poi_id']
         user_lat = serializer.validated_data['user_lat']
         user_lon = serializer.validated_data['user_lon']
 
         poi = get_object_or_404(PointOfInterest, id=poi_id)
 
-        # Anti-Cheat: Haversine ფორმულა — 40 მეტრის რადიუსი
+        # Anti-Cheat: Haversine — 40 მეტრის რადიუსი
         distance = haversine_distance(user_lat, user_lon, poi.latitude, poi.longitude)
         if distance > 40:
             return Response(
                 {
                     "error": "თვალთმაქცობა! თქვენ არ იმყოფებით ლოკაციიდან 40 მეტრის რადიუსში.",
-                    "current_distance": int(distance)
+                    "current_distance_meters": int(distance)
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         # Duplicate Check-In
         if CheckIn.objects.filter(user=request.user, poi=poi).exists():
-            return Response({"error": "თქვენ უკვე აღმოაჩინეთ ეს ადგილი."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "თქვენ უკვე აღმოაჩინეთ ეს ადგილი."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Check-In შექმნა
         CheckIn.objects.create(user=request.user, poi=poi, awarded_xp=poi.base_xp)
@@ -67,27 +97,38 @@ class PerformCheckIn(APIView):
         dropped_item = None
         if poi.reward_badge_name:
             badge = Badge.objects.filter(name__iexact=poi.reward_badge_name).first()
-            skin = Skin.objects.filter(name__iexact=poi.reward_badge_name).first()
+            skin  = Skin.objects.filter(name__iexact=poi.reward_badge_name).first()
 
             if badge and not UserInventory.objects.filter(user=request.user, badge=badge).exists():
-                UserInventory.objects.create(user=request.user, badge=badge, location_unlocked_from=poi.name)
-                dropped_item = f"Badge: {badge.name}"
+                UserInventory.objects.create(
+                    user=request.user, badge=badge,
+                    location_unlocked_from=poi.name
+                )
+                dropped_item = {"type": "badge", "name": badge.name, "rarity": badge.rarity}
             elif skin and not UserInventory.objects.filter(user=request.user, skin=skin).exists():
-                UserInventory.objects.create(user=request.user, skin=skin, location_unlocked_from=poi.name)
-                dropped_item = f"Skin: {skin.name}"
+                UserInventory.objects.create(
+                    user=request.user, skin=skin,
+                    location_unlocked_from=poi.name
+                )
+                dropped_item = {"type": "skin", "name": skin.name, "region": skin.region_unlock}
 
         # XP და Level განახლება
         user = request.user
-        user.xp += poi.base_xp
-        user.level = (user.xp // 100) + 1
+        user.xp    += poi.base_xp
+        user.level  = (user.xp // 100) + 1
         user.save()
 
         return Response({
-            "message": "Check-in successful! Reward Claimed.",
-            "awarded_xp": poi.base_xp,
-            "new_total_xp": user.xp,
-            "new_level": user.level,
-            "dropped_item_in_backpack": dropped_item or "No new exclusive items dropped"
+            "message":              "Check-in successful! Reward Claimed.",
+            "awarded_xp":           poi.base_xp,
+            "new_total_xp":         user.xp,
+            "new_level":            user.level,
+            "dropped_item":         dropped_item or "No exclusive items dropped",
+            "poi": {
+                "id":   poi.id,
+                "name": poi.name,
+                "type": poi.get_poi_type_display(),
+            }
         }, status=status.HTTP_200_OK)
 
 
@@ -99,27 +140,27 @@ class AITourPlannerView(APIView):
 
     def post(self, request):
         interests = request.data.get('interests', 'sightseeing, local food')
-        hours = request.data.get('hours', 3)
+        hours     = request.data.get('hours', 3)
 
         if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == 'your_openai_api_key_here':
             return Response(
-                {"error": "OpenAI API Key is missing on the server. Add OPENAI_API_KEY to .env"},
+                {"error": "OpenAI API Key is missing. Add OPENAI_API_KEY to .env"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
         openai.api_key = settings.OPENAI_API_KEY
         prompt = (
             f"I have {hours} hours free and my travel interests are: {interests}. "
-            f"Create a short tailored travel itinerary. "
-            f"Respond in JSON format only with keys: 'tour_title', 'description', 'stops' (list of place names)."
+            f"Create a short tailored travel itinerary for Tbilisi, Georgia. "
+            f"Respond in JSON only with keys: 'tour_title', 'description', 'stops' (list of place names)."
         )
 
         try:
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are a professional travel planner returning JSON."},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": "You are a professional Georgian travel planner returning JSON."},
+                    {"role": "user",   "content": prompt}
                 ],
                 response_format={"type": "json_object"}
             )
