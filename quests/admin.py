@@ -1,10 +1,39 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from .models import DailyQuest, UserQuestProgress
+from .models import DailyQuest, UserQuestProgress, QuizQuestion, UserQuizSubmission, UserPuzzleSubmission
+
+
+# ── Inline: ქვიზის კითხვები POI-სთვის ──────────────────────────────────────────
+class QuizQuestionInline(admin.TabularInline):
+    model = QuizQuestion
+    extra = 1
+    fields = ('question', 'answer1', 'answer2', 'answer3', 'answer4', 'correct_index')
+
+
+@admin.register(QuizQuestion)
+class QuizQuestionAdmin(admin.ModelAdmin):
+    list_display = ('question', 'poi', 'correct_index')
+    list_filter = ('poi',)
+    search_fields = ('question', 'poi__name')
+
+
+@admin.register(UserQuizSubmission)
+class UserQuizSubmissionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'poi', 'score', 'date_submitted')
+    list_filter = ('date_submitted', 'poi')
+    search_fields = ('user__email', 'poi__name')
+
+
+@admin.register(UserPuzzleSubmission)
+class UserPuzzleSubmissionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'poi', 'date_submitted')
+    list_filter = ('date_submitted', 'poi')
+    search_fields = ('user__email', 'poi__name')
 
 
 # ── Inline: ქვესთის შესრულება ──────────────────────────────────────────────────
+
 class QuestProgressInline(admin.TabularInline):
     model = UserQuestProgress
     extra = 0
