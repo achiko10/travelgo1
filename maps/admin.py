@@ -45,11 +45,11 @@ class PointOfInterestAdmin(admin.ModelAdmin):
     """
     list_display = (
         'name', 'poi_type', 'base_xp', 'latitude', 'longitude',
-        'open_hours', 'reward_badge_name', 'has_audio_guide',
+        'open_hours', 'reward_badge', 'reward_skin', 'has_audio_guide',
         'has_photo', 'checkin_count'
     )
     list_filter = ('poi_type',)
-    search_fields = ('name', 'description', 'reward_badge_name')
+    search_fields = ('name', 'description')
     readonly_fields = ('checkin_count', 'photo_preview', 'google_maps_preview')
 
     fieldsets = (
@@ -60,9 +60,8 @@ class PointOfInterestAdmin(admin.ModelAdmin):
             'fields': ('latitude', 'longitude', 'google_maps_link', 'google_maps_preview')
         }),
         ('🎁 ჯილდო / Drop System', {
-            'fields': ('base_xp', 'reward_badge_name'),
-            'description': 'reward_badge_name — Badge ან Skin-ის სახელი (ზუსტად ისე, '
-                           'როგორც Inventory-ში), Check-in-ისას ავტომატურად გადაეცემა მომხმარებელს.'
+            'fields': ('base_xp', 'reward_badge', 'reward_skin'),
+            'description': 'Check-in-ისას ავტომატურად გადაეცემა მომხმარებელს.'
         }),
         ('📸 მედია', {
             'fields': ('photo', 'photo_preview', 'audio_guide'),

@@ -28,6 +28,10 @@ class PartnerList(generics.ListAPIView):
         return qs
 
 
+from django.db.models import Q
+from django.utils import timezone
+
+
 class MyCouponsView(APIView):
     """
     GET /api/partners/my-coupons/
@@ -36,11 +40,18 @@ class MyCouponsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        today = timezone.now().date()
+        # Auto-expire outdated coupons
+        DiscountCoupon.objects.filter(
+            status='active',
+            valid_until__isnull=False,
+            valid_until__lt=today
+        ).update(status='expired')
+
         coupons = DiscountCoupon.objects.filter(
             status='active'
         ).filter(
-            # ან ამ user-ისთვის, ან ყველასთვის (user=None)
-            user__in=[request.user, None]
+            Q(user=request.user) | Q(user__isnull=True)
         ).select_related('partner', 'partner__category')
 
         serializer = DiscountCouponSerializer(coupons, many=True, context={'request': request})
@@ -69,6 +80,16 @@ class RedeemCouponView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # H4 FIX: Check valid_until expiry date
+        today = timezone.now().date()
+        if coupon.valid_until and coupon.valid_until < today:
+            coupon.status = 'expired'
+            coupon.save(update_fields=['status'])
+            return Response(
+                {"error": "კუპონის ვარგისიანობის ვადა ამოწურულია."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # user შემოწმება — კუპონი სხვისი?
         if coupon.user and coupon.user != request.user:
             return Response(
@@ -76,7 +97,6 @@ class RedeemCouponView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        from django.utils import timezone
         coupon.status  = 'used'
         coupon.user    = request.user
         coupon.used_at = timezone.now()

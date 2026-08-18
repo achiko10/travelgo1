@@ -34,8 +34,8 @@ class Partner(models.Model):
     location_address = models.CharField(max_length=255, verbose_name="მისამართი (KA)")
     location_address_en = models.CharField(max_length=255, blank=True, verbose_name="Address (EN)")
 
-    latitude = models.FloatField(default=41.7151)
-    longitude = models.FloatField(default=44.8271)
+    latitude = models.FloatField(default=41.7151, db_index=True)
+    longitude = models.FloatField(default=44.8271, db_index=True)
 
     offer_percentage = models.PositiveIntegerField(default=5, verbose_name="ფასდაკლების % (ან ბონუსი)")
 

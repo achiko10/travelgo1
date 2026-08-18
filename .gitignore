@@ -6,3 +6,5 @@ media/
 debug_swagger.py
 save_html.py
 swagger_error.html
+.env
+*.log

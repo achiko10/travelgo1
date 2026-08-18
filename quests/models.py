@@ -20,6 +20,7 @@ class DailyQuest(models.Model):
         default=None,
         null=True,
         blank=True,
+        db_index=True,
         verbose_name="ქვესთის თარიღი",
         help_text="დატოვეთ სადაც, რომლიც ქვესთი აქტიურია იქნება"
     )
@@ -33,6 +34,12 @@ class UserQuestProgress(models.Model):
     quest = models.ForeignKey(DailyQuest, on_delete=models.CASCADE)
     progress = models.PositiveIntegerField(default=0)
     is_completed = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'quest'], name='unique_user_quest_progress')
+        ]
+        verbose_name = "ქვესთის პროგრესი"
 
     def __str__(self):
         return f"{self.user.email} -> {self.quest.title}"

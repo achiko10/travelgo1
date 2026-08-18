@@ -38,11 +38,15 @@ class SendFriendRequestView(APIView):
         if to_user == request.user:
             return Response({'error': 'საკუთარ თავს ვერ დაამეგობრებ'}, status=status.HTTP_400_BAD_REQUEST)
 
-        friendship, created = Friendship.objects.get_or_create(
-            from_user=request.user, to_user=to_user
-        )
-        if not created:
-            return Response({'error': 'მოთხოვნა უკვე გაგზავნილია'}, status=status.HTTP_400_BAD_REQUEST)
+        # ორმხრივი დუბლიკატის შემოწმება (A→B ან B→A)
+        existing = Friendship.objects.filter(
+            Q(from_user=request.user, to_user=to_user) |
+            Q(from_user=to_user, to_user=request.user)
+        ).first()
+        if existing:
+            return Response({'error': 'მეგობრობის მოთხოვნა უკვე არსებობს'}, status=status.HTTP_400_BAD_REQUEST)
+
+        Friendship.objects.create(from_user=request.user, to_user=to_user)
 
         return Response({'message': f'{to_user.email}-ს მეგობრობის მოთხოვნა გაეგზავნა'})
 
@@ -96,6 +100,14 @@ class MyChallengesView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        from django.utils import timezone
+        # Auto-expire pending challenges past expires_at
+        ChallengeInvite.objects.filter(
+            status='pending',
+            expires_at__isnull=False,
+            expires_at__lt=timezone.now()
+        ).update(status='expired')
+
         return ChallengeInvite.objects.filter(
             Q(from_user=user) | Q(to_user=user)
         ).select_related('from_user', 'to_user', 'poi')
@@ -109,7 +121,12 @@ class SendChallengeView(APIView):
         to_user_id = request.data.get('to_user_id')
         poi_id     = request.data.get('poi_id')
         message    = request.data.get('message', '')
-        bonus_xp   = request.data.get('bonus_xp', 25)
+        raw_bonus  = request.data.get('bonus_xp', 25)
+
+        try:
+            bonus_xp = min(max(10, int(raw_bonus)), 100)
+        except (ValueError, TypeError):
+            bonus_xp = 25
 
         if not to_user_id or not poi_id:
             return Response({'error': 'to_user_id და poi_id საჭიროა'}, status=status.HTTP_400_BAD_REQUEST)
@@ -123,6 +140,14 @@ class SendChallengeView(APIView):
             poi     = PointOfInterest.objects.get(id=poi_id)
         except (User.DoesNotExist, PointOfInterest.DoesNotExist):
             return Response({'error': 'მომხმარებელი ან ლოკაცია ვერ მოიძებნა'}, status=status.HTTP_404_NOT_FOUND)
+
+        # H1 FIX: Verify friendship exists between users
+        is_friend = Friendship.objects.filter(
+            (Q(from_user=request.user, to_user=to_user) | Q(from_user=to_user, to_user=request.user)),
+            status='accepted'
+        ).exists()
+        if not is_friend:
+            return Response({'error': 'გამოწვევის გაგზავნა მხოლოდ მეგობრებისთვისაა ნებადართული'}, status=status.HTTP_403_FORBIDDEN)
 
         challenge = ChallengeInvite.objects.create(
             from_user=request.user,

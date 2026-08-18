@@ -11,7 +11,9 @@ class ActiveQuestsList(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return DailyQuest.objects.filter(date_active=timezone.now().date())
+        from django.db.models import Q
+        today = timezone.now().date()
+        return DailyQuest.objects.filter(Q(date_active=today) | Q(date_active__isnull=True))
 
 class MyQuestProgress(generics.ListAPIView):
     serializer_class = UserQuestProgressSerializer
@@ -30,6 +32,9 @@ from .models import QuizQuestion, UserQuizSubmission, UserPuzzleSubmission
 from .serializers import QuizQuestionSerializer
 from maps.models import PointOfInterest
 from django.db import transaction
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class QuizView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -49,31 +54,53 @@ class QuizSubmitView(APIView):
 
     def post(self, request):
         poi_id = request.data.get('poi_id')
-        score = request.data.get('score', 0)
+        user_answers = request.data.get('answers') # e.g. {"question_id": selected_index}
         
         if not poi_id:
             return Response({"error": "poi_id is required"}, status=status.HTTP_400_BAD_REQUEST)
             
         poi = get_object_or_404(PointOfInterest, id=poi_id)
+        
+        # Calculate score on backend if answers array/dict provided
+        if user_answers and isinstance(user_answers, dict):
+            questions = QuizQuestion.objects.filter(poi=poi)
+            calculated_score = 0
+            for q in questions:
+                selected = user_answers.get(str(q.id))
+                if selected is not None and int(selected) == q.correct_index:
+                    calculated_score += 1
+            score = calculated_score
+        else:
+            # Fallback: cap client-sent score to maximum 10
+            raw_score = request.data.get('score', 0)
+            score = min(max(0, int(raw_score)), 10)
+            
         user = request.user
         
-        # Check if already submitted today to prevent double rewards
-        already_submitted = UserQuizSubmission.objects.filter(user=user, poi=poi).exists()
+        # დღიური ლიმიტის შემოწმება — მხოლოდ დღევანდელი თარიღით
+        today = timezone.now().date()
+        already_submitted = UserQuizSubmission.objects.filter(
+            user=user, poi=poi, date_submitted__date=today
+        ).exists()
         if already_submitted:
-            return Response({"message": "Quiz already submitted for this location today"}, status=status.HTTP_200_OK)
+            return Response({"message": "ქვიზი ამ ლოკაციაზე დღეს უკვე გაკეთებულია"}, status=status.HTTP_200_OK)
             
         with transaction.atomic():
             UserQuizSubmission.objects.create(user=user, poi=poi, score=score)
             
-            # Award rewards: 15 coins and 100 XP
-            user.coins += 15
-            user.xp += 100
-            user.save()
+            # select_for_update() — race condition-ის დაცვა
+            locked_user = User.objects.select_for_update().get(pk=user.pk)
+            locked_user.coins += 15
+            locked_user.xp += 100
+            locked_user.level = locked_user.calculate_level()
+            locked_user.save(update_fields=['coins', 'xp', 'level'])
             
+        user.refresh_from_db()
         return Response({
             "success": True,
             "coins": user.coins,
-            "xp": user.xp
+            "xp": user.xp,
+            "level": user.level
         }, status=status.HTTP_200_OK)
 
 
@@ -89,22 +116,29 @@ class PuzzleSubmitView(APIView):
         poi = get_object_or_404(PointOfInterest, id=poi_id)
         user = request.user
         
-        # Check if already submitted today to prevent double rewards
-        already_submitted = UserPuzzleSubmission.objects.filter(user=user, poi=poi).exists()
+        # დღიური ლიმიტის შემოწმება — მხოლოდ დღევანდელი თარიღით
+        today = timezone.now().date()
+        already_submitted = UserPuzzleSubmission.objects.filter(
+            user=user, poi=poi, date_submitted__date=today
+        ).exists()
         if already_submitted:
-            return Response({"message": "Puzzle already solved for this location today"}, status=status.HTTP_200_OK)
+            return Response({"message": "პაზლი ამ ლოკაციაზე დღეს უკვე გაკეთებულია"}, status=status.HTTP_200_OK)
             
         with transaction.atomic():
             UserPuzzleSubmission.objects.create(user=user, poi=poi)
             
-            # Award rewards: 25 coins and 150 XP
-            user.coins += 25
-            user.xp += 150
-            user.save()
+            # select_for_update() — race condition-ის დაცვა
+            locked_user = User.objects.select_for_update().get(pk=user.pk)
+            locked_user.coins += 25
+            locked_user.xp += 150
+            locked_user.level = locked_user.calculate_level()
+            locked_user.save(update_fields=['coins', 'xp', 'level'])
             
+        user.refresh_from_db()
         return Response({
             "success": True,
             "coins": user.coins,
-            "xp": user.xp
+            "xp": user.xp,
+            "level": user.level
         }, status=status.HTTP_200_OK)
 

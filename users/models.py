@@ -7,14 +7,15 @@ class CustomUserManager(BaseUserManager):
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
-        extra_fields.setdefault('username', email.split('@')[0])
+        
+        # Use email prefix + unique suffix for username to prevent duplicate username collisions
+        import uuid
+        username_prefix = email.split('@')[0]
+        unique_suffix = uuid.uuid4().hex[:6]
+        extra_fields.setdefault('username', f"{username_prefix}_{unique_suffix}")
+        
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
-        
-        # Auto-generate a secure 6 digit referral code for each new user
-        from django.utils.crypto import get_random_string
-        user.referral_code = get_random_string(length=6, allowed_chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-        
         user.save(using=self._db)
         return user
 
@@ -67,6 +68,22 @@ class CustomUser(AbstractUser):
 
     objects = CustomUserManager()
 
+    def calculate_level(self):
+        """ექსპონენციალური XP სისტემა: RequiredXP = Level^1.5 * 100"""
+        import math
+        current_level = 1
+        accumulated_xp = 0
+        while True:
+            needed = int((current_level ** 1.5) * 100)
+            if self.xp < accumulated_xp + needed:
+                break
+            accumulated_xp += needed
+            current_level += 1
+        return current_level
+
+    def xp_for_next_level(self):
+        return int((self.level ** 1.5) * 100)
+
     def __str__(self):
         return f"{self.email} (Lvl: {self.level})"
 
@@ -76,6 +93,22 @@ class AnalyticsProxy(CustomUser):
         proxy = True
         verbose_name = "მოგზაური (სტატისტიკა)"
         verbose_name_plural = "პლატფორმის ანალიტიკა (Dashboard)"
+
+
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from django.utils.crypto import get_random_string
+
+@receiver(pre_save, sender=CustomUser)
+def generate_user_referral_code(sender, instance, **kwargs):
+    if not instance.referral_code:
+        unique = False
+        while not unique:
+            code = get_random_string(length=6, allowed_chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+            # Query the database to check if the code already exists
+            if not sender.objects.filter(referral_code=code).exists():
+                instance.referral_code = code
+                unique = True
 
 
 

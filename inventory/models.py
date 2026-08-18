@@ -59,6 +59,31 @@ class UserInventory(models.Model):
     date_unlocked = models.DateTimeField(auto_now_add=True)
     location_unlocked_from = models.CharField(max_length=255, blank=True)
 
+    class Meta:
+        constraints = [
+            # ან badge, ან skin — ზუსტად ერთ-ერთი უნდა იყოს შევსებული
+            models.CheckConstraint(
+                condition=(
+                    models.Q(badge__isnull=False, skin__isnull=True) |
+                    models.Q(badge__isnull=True, skin__isnull=False)
+                ),
+                name='inventory_badge_xor_skin'
+            ),
+            # მომხმარებელს ერთი badge მხოლოდ ერთხელ შეიძლება ჰქონდეს
+            models.UniqueConstraint(
+                fields=['user', 'badge'],
+                condition=models.Q(badge__isnull=False),
+                name='unique_user_badge'
+            ),
+            # მომხმარებელს ერთი skin მხოლოდ ერთხელ შეიძლება ჰქონდეს
+            models.UniqueConstraint(
+                fields=['user', 'skin'],
+                condition=models.Q(skin__isnull=False),
+                name='unique_user_skin'
+            ),
+        ]
+        verbose_name = "ინვენტარი"
+
     def __str__(self):
         item = self.badge.name if self.badge else (self.skin.name if self.skin else "Item")
         return f"{self.user.email} -> {item}"

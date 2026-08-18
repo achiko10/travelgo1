@@ -35,13 +35,25 @@ class PointOfInterest(models.Model):
     poi_type = models.CharField(max_length=50, choices=POI_TYPES, verbose_name="ლოკაციის ტიპი")
 
     # ── კოორდინატები ──────────────────────────────────────────────────────────
-    latitude = models.FloatField(verbose_name="Latitude (Y)", default=41.7151)
-    longitude = models.FloatField(verbose_name="Longitude (X)", default=44.8271)
+    latitude = models.FloatField(verbose_name="Latitude (Y)", default=41.7151, db_index=True)
+    longitude = models.FloatField(verbose_name="Longitude (X)", default=44.8271, db_index=True)
 
     base_xp = models.PositiveIntegerField(default=50, verbose_name="გასაცემი XP ქულები")
-    reward_badge_name = models.CharField(
-        max_length=100, blank=True,
-        help_text="რა Skin/Badge შეიძლება მოგცეს (XP გარდა)"
+    reward_badge = models.ForeignKey(
+        'inventory.Badge',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="საპრიზო ბეჯი",
+        related_name="pois_rewarded"
+    )
+    reward_skin = models.ForeignKey(
+        'inventory.Skin',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="საპრიზო სკინი",
+        related_name="pois_rewarded"
     )
     google_maps_link = models.URLField(blank=True, verbose_name="Google Maps ლინკი")
 
@@ -53,8 +65,8 @@ class RedZone(models.Model):
     """თაღლითების ზონა — Flutter Map-ზე წითლად გამოჩნდება"""
     name = models.CharField(max_length=100, verbose_name="ზონის სახელი (KA)")
     name_en = models.CharField(max_length=100, blank=True, verbose_name="Zone Name (EN)")
-    latitude = models.FloatField(default=41.7151)
-    longitude = models.FloatField(default=44.8271)
+    latitude = models.FloatField(default=41.7151, db_index=True)
+    longitude = models.FloatField(default=44.8271, db_index=True)
     radius_meters = models.FloatField(default=100.0, verbose_name="რადიუსი მეტრებში")
 
     def __str__(self):
@@ -69,7 +81,9 @@ class CheckIn(models.Model):
     awarded_xp = models.PositiveIntegerField(default=0)
 
     class Meta:
-        unique_together = ('user', 'poi')
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'poi'], name='unique_user_poi_checkin')
+        ]
         verbose_name = "ჩექინი (Check-in)"
 
     def __str__(self):

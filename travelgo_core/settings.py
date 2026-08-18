@@ -14,7 +14,12 @@ load_dotenv()
 
 # ─── Security ──────────────────────────────────────────────────────────────────
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-unsafe-key-change-in-env!')
+from django.core.exceptions import ImproperlyConfigured
+
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured("SECRET_KEY env variable is required but not set!")
+
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '*')
@@ -48,9 +53,9 @@ INSTALLED_APPS = [
     'partners',
     'inventory',
     'quests',
-    'project_manager',
     'configuration',
     'social',
+    'eco_missions',
 ]
 
 AUTH_USER_MODEL = 'users.CustomUser'
@@ -146,40 +151,69 @@ else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = BASE_DIR / 'media'
 
-# ─── JWT Configuration ─────────────────────────────────────────────────────────
+# ─── JWT & Throttling Configuration ──────────────────────────────────────────
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day',
+        'password_reset': '5/hour',
+        'login': '10/hour',
+    }
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
     'ROTATE_REFRESH_TOKENS': True,
 }
 
 # ─── CORS ──────────────────────────────────────────────────────────────────────
-# MVP: ყველა Origin-ს ვუშვებთ (Flutter local + production).
-# Production-ში შეიზღუდება კონკრეტული დომენებით.
-CORS_ALLOW_ALL_ORIGINS = True
+# WARNING: CORS_ALLOW_ALL_ORIGINS is enabled only in DEBUG mode. For production (DEBUG=False),
+# origins are strictly restricted to CORS_ALLOWED_ORIGINS below.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = [
+    'https://travelgo12.pythonanywhere.com',
+    'http://localhost:3000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 
 # ─── Celery ────────────────────────────────────────────────────────────────────
 
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND_URL', CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
-# ─── Cache (Redis) ─────────────────────────────────────────────────────────────
+# ─── Cache (Redis or In-Memory for testing) ─────────────────────────────────────
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+import sys
+
+if 'test' in sys.argv or DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+        }
+    }
 
 # ─── Email ─────────────────────────────────────────────────────────────────────
 # MVP: Console-ში ბეჭდავს მეილს (Redis PIN-ი მოქმედებს).

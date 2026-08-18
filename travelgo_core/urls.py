@@ -13,6 +13,8 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
+from django.conf import settings
+
 schema_view = get_schema_view(
    openapi.Info(
       title="Travel Go API Docs",
@@ -20,8 +22,8 @@ schema_view = get_schema_view(
       description="Interactive documentation for Flutter development",
       contact=openapi.Contact(email="developer@travelgo.ge"),
    ),
-   public=True,
-   permission_classes=(permissions.AllowAny,),
+   public=settings.DEBUG,
+   permission_classes=(permissions.AllowAny if settings.DEBUG else permissions.IsAdminUser,),
 )
 
 urlpatterns = [
@@ -39,4 +41,5 @@ urlpatterns = [
     path('api/inventory/', include('inventory.urls')),
     path('api/config/',    include('configuration.urls')),
     path('api/social/',    include('social.urls')),
+    path('api/eco/',       include('eco_missions.urls')),
 ]

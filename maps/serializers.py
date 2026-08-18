@@ -9,13 +9,17 @@ class POISerializer(serializers.ModelSerializer):
     audio_guide = serializers.SerializerMethodField()
 
     checkin_count = serializers.SerializerMethodField()
+    reward_badge_name = serializers.SerializerMethodField()
+    reward_skin_name = serializers.SerializerMethodField()
 
     class Meta:
         model = PointOfInterest
         fields = [
             'id', 'name', 'description', 'photo', 'audio_guide',
             'open_hours', 'poi_type', 'latitude', 'longitude',
-            'base_xp', 'reward_badge_name', 'google_maps_link', 'checkin_count'
+            'base_xp', 'reward_badge', 'reward_badge_name',
+            'reward_skin', 'reward_skin_name',
+            'google_maps_link', 'checkin_count'
         ]
 
     def get_name(self, obj):
@@ -36,6 +40,12 @@ class POISerializer(serializers.ModelSerializer):
 
     def get_checkin_count(self, obj):
         return obj.checkins.count()
+
+    def get_reward_badge_name(self, obj):
+        return obj.reward_badge.name if obj.reward_badge else None
+
+    def get_reward_skin_name(self, obj):
+        return obj.reward_skin.name if obj.reward_skin else None
 
 
 class RedZoneSerializer(serializers.ModelSerializer):

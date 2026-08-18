@@ -82,3 +82,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 ReferralDashboardSerializer = DigitalPassportSerializer
 
 
+class LeaderboardSerializer(serializers.ModelSerializer):
+    """Serializer for the public Leaderboard — hides emails and phone numbers"""
+    class Meta:
+        model = CustomUser
+        fields = [
+            'id', 'full_name', 'level', 'xp',
+            'avatar_skin_color', 'avatar_hair_style', 'avatar_clothing'
+        ]

@@ -55,11 +55,12 @@ class PurchaseItem(APIView):
                     return Response({"error": "Insufficient coins balance"}, status=status.HTTP_400_BAD_REQUEST)
 
                 # Check if already owned
-                already_owned = UserInventory.objects.filter(
-                    user=user_refresh,
-                    skin=skin,
-                    badge=badge
-                ).exists()
+                if skin:
+                    already_owned = UserInventory.objects.filter(user=user_refresh, skin=skin).exists()
+                elif badge:
+                    already_owned = UserInventory.objects.filter(user=user_refresh, badge=badge).exists()
+                else:
+                    already_owned = False
 
                 if already_owned:
                     return Response({"error": "Item already purchased"}, status=status.HTTP_400_BAD_REQUEST)

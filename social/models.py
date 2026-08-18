@@ -34,7 +34,18 @@ class Friendship(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="შექმნის თარიღი")
 
     class Meta:
-        unique_together = ('from_user', 'to_user')
+        constraints = [
+            # ერთი მიმართულების მეგობრობა უნიკალურია
+            models.UniqueConstraint(
+                fields=['from_user', 'to_user'],
+                name='unique_friendship_direction'
+            ),
+            # მომხმარებელი საკუთარ თავს ვერ გაუგზავნის მოთხოვნას
+            models.CheckConstraint(
+                condition=~models.Q(from_user=models.F('to_user')),
+                name='prevent_self_friendship'
+            ),
+        ]
         verbose_name = "მეგობრობა"
         verbose_name_plural = "🤝 მეგობრები"
         ordering = ['-created_at']
@@ -88,7 +99,7 @@ class FriendActivity(models.Model):
     )
     xp_earned = models.PositiveIntegerField(default=0, verbose_name="მიღებული XP")
     new_level  = models.PositiveIntegerField(null=True, blank=True, verbose_name="ახალი დონე (level_up-ისთვის)")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="თარიღი")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="თარიღი", db_index=True)
 
     class Meta:
         verbose_name = "სოციალური ქმედება"
@@ -142,7 +153,14 @@ class ChallengeInvite(models.Model):
         default=25,
         verbose_name="ბონუს XP (გამარჯვებისთვის)"
     )
-    created_at  = models.DateTimeField(auto_now_add=True, verbose_name="შექმნის თარიღი")
+    winner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='won_challenges',
+        verbose_name="გამარჯვებული"
+    )
+    created_at  = models.DateTimeField(auto_now_add=True, verbose_name="შექმნის თარიღი", db_index=True)
     expires_at  = models.DateTimeField(null=True, blank=True, verbose_name="ვადის გასვლის თარიღი")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="დასრულების თარიღი")
 
