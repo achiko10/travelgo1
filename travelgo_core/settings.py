@@ -204,15 +204,16 @@ CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND_URL', CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
-# ─── Cache (In-Memory default, Redis if REDIS_URL set) ─────────────────────────
+# ─── Cache Configuration (In-Memory default for MVP & PythonAnywhere) ─────────
 
-redis_url_env = os.getenv('REDIS_URL', '').strip()
+use_redis = os.getenv('USE_REDIS', 'False') == 'True'
+redis_url = os.getenv('REDIS_URL', '').strip()
 
-if redis_url_env:
+if use_redis and redis_url:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': redis_url_env,
+            'LOCATION': redis_url,
         }
     }
 else:
