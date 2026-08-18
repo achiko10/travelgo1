@@ -22,8 +22,8 @@ schema_view = get_schema_view(
       description="Interactive documentation for Flutter development",
       contact=openapi.Contact(email="developer@travelgo.ge"),
    ),
-   public=settings.DEBUG,
-   permission_classes=(permissions.AllowAny if settings.DEBUG else permissions.IsAdminUser,),
+   public=True,
+   permission_classes=(permissions.AllowAny,),
 )
 
 from django.http import JsonResponse
