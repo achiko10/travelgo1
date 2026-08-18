@@ -26,7 +26,19 @@ schema_view = get_schema_view(
    permission_classes=(permissions.AllowAny if settings.DEBUG else permissions.IsAdminUser,),
 )
 
+from django.http import JsonResponse
+
+def root_api_index(request):
+    return JsonResponse({
+        "status": "online",
+        "service": "TravelGo API Backend",
+        "version": "1.0.0",
+        "admin_panel": "/admin/",
+        "swagger_docs": "/swagger/"
+    })
+
 urlpatterns = [
+    path('', root_api_index, name='api_root'),
     path('admin/', admin.site.urls),
     
     # Swagger API Documentation endpoints

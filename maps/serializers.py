@@ -34,8 +34,11 @@ class POISerializer(serializers.ModelSerializer):
     def get_audio_guide(self, obj):
         request = self.context.get('request')
         audio = get_translated(obj, 'audio_guide', request)
-        if audio:
-            return request.build_absolute_uri(audio.url) if request else audio.url
+        if audio and hasattr(audio, 'url'):
+            try:
+                return request.build_absolute_uri(audio.url) if request else audio.url
+            except (ValueError, AttributeError):
+                return None
         return None
 
     def get_checkin_count(self, obj):
