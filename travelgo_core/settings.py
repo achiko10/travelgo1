@@ -187,9 +187,10 @@ SIMPLE_JWT = {
 }
 
 # ─── CORS ──────────────────────────────────────────────────────────────────────
-# WARNING: CORS_ALLOW_ALL_ORIGINS is enabled only in DEBUG mode. For production (DEBUG=False),
-# origins are strictly restricted to CORS_ALLOWED_ORIGINS below.
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+# MVP Phase: Allow all origins so Flutter Web (which runs on random localhost ports)
+# and any frontend can reach the API without CORS issues.
+# TODO: For production launch, restrict to specific domains only.
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     'https://travelgo12.pythonanywhere.com',
     'http://localhost:3000',
