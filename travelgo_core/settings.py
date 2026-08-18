@@ -204,22 +204,22 @@ CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND_URL', CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
-# ─── Cache (Redis or In-Memory for testing) ─────────────────────────────────────
+# ─── Cache (In-Memory default, Redis if REDIS_URL set) ─────────────────────────
 
-import sys
+redis_url_env = os.getenv('REDIS_URL', '').strip()
 
-if 'test' in sys.argv or DEBUG:
+if redis_url_env:
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': redis_url_env,
         }
     }
 else:
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'travelgo-memory-cache',
         }
     }
 
