@@ -23,7 +23,14 @@ if not SECRET_KEY:
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '*')
-ALLOWED_HOSTS = allowed_hosts_env.split(',') if allowed_hosts_env != '*' else ['*']
+if allowed_hosts_env == '*':
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+    if 'travelgo12.pythonanywhere.com' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('travelgo12.pythonanywhere.com')
+    if '.pythonanywhere.com' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('.pythonanywhere.com')
 
 # ─── API Keys ──────────────────────────────────────────────────────────────────
 
