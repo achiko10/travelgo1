@@ -41,7 +41,8 @@ class Command(BaseCommand):
             {"step_number": 5, "title": "გამოიწვიე მეგობრები", "description": "შეეჯიბრე მეგობრებს და გახდი ლიდერბორდის ჩემპიონი", "title_en": "Challenge Friends", "description_en": "Compete with friends and lead the leaderboard"},
         ]
         for ob in onboarding_data:
-            OnboardingSlide.objects.get_or_create(step_number=ob["step_number"], defaults=ob)
+            if not OnboardingSlide.objects.filter(step_number=ob["step_number"]).exists():
+                OnboardingSlide.objects.create(**ob)
 
         # App Translations (5)
         translations_data = [
@@ -52,7 +53,8 @@ class Command(BaseCommand):
             {"key": "ai_planner_title", "category": "ai", "text_ka": "AI ტურის დაგეგმვა", "text_en": "AI Tour Planner"},
         ]
         for tr in translations_data:
-            AppTranslation.objects.get_or_create(key=tr["key"], defaults=tr)
+            if not AppTranslation.objects.filter(key=tr["key"]).exists():
+                AppTranslation.objects.create(**tr)
 
         # AR Tutorial Steps (5)
         ar_steps = [
@@ -63,7 +65,8 @@ class Command(BaseCommand):
             {"step_number": 5, "target_action": "checkin", "instruction_ka": "გილოცავთ! თქვენ მიიღეთ 50 მონეტა", "instruction_en": "Congratulations! You earned 50 coins"},
         ]
         for ar in ar_steps:
-            ARTutorialStep.objects.get_or_create(step_number=ar["step_number"], defaults=ar)
+            if not ARTutorialStep.objects.filter(step_number=ar["step_number"]).exists():
+                ARTutorialStep.objects.create(**ar)
 
         # 2. SEED SHOP ITEMS (5 Badges & 5 Skins)
         self.stdout.write("2. Seeding Shop Items (5 Badges & 5 Skins)...")
@@ -76,7 +79,9 @@ class Command(BaseCommand):
             {"name": "Wine Connoisseur", "description": "Visited 3 top Georgian wineries", "coin_price": 120, "is_for_sale": True, "rarity": "rare"},
         ]
         for bdata in badges_data:
-            b, _ = Badge.objects.get_or_create(name=bdata["name"], defaults=bdata)
+            b = Badge.objects.filter(name=bdata["name"]).first()
+            if not b:
+                b = Badge.objects.create(**bdata)
             badges_list.append(b)
 
         skins_list = []
@@ -88,7 +93,9 @@ class Command(BaseCommand):
             {"name": "Svaneti Mountain Coat", "description": "Warm authentic mountain wool coat", "coin_price": 220, "is_for_sale": True},
         ]
         for sdata in skins_data:
-            s, _ = Skin.objects.get_or_create(name=sdata["name"], defaults=sdata)
+            s = Skin.objects.filter(name=sdata["name"]).first()
+            if not s:
+                s = Skin.objects.create(**sdata)
             skins_list.append(s)
 
         # 3. SEED TEST USERS (5 Users)
@@ -102,18 +109,26 @@ class Command(BaseCommand):
         ]
         created_users = []
         for udata in test_users_data:
-            u, _ = User.objects.get_or_create(email=udata["email"], defaults=udata)
+            u = User.objects.filter(email=udata["email"]).first()
+            if not u:
+                u = User.objects.create_user(**udata)
             created_users.append(u)
 
-        demo_user, _ = User.objects.get_or_create(
-            email="testuser@travelgo.ge",
-            defaults={"username": "demo_traveler", "full_name": "Demo Traveler", "xp": 1200, "level": 3, "coins": 450}
-        )
+        demo_user = User.objects.filter(email="testuser@travelgo.ge").first()
+        if not demo_user:
+            demo_user = User.objects.create_user(
+                email="testuser@travelgo.ge",
+                username="demo_traveler",
+                full_name="Demo Traveler",
+                xp=1200, level=3, coins=450
+            )
 
         # Seed User Inventories (5)
         for i, user in enumerate(created_users):
-            UserInventory.objects.get_or_create(user=user, badge=badges_list[i % len(badges_list)])
-            UserInventory.objects.get_or_create(user=user, skin=skins_list[i % len(skins_list)])
+            if not UserInventory.objects.filter(user=user, badge=badges_list[i % len(badges_list)]).exists():
+                UserInventory.objects.create(user=user, badge=badges_list[i % len(badges_list)])
+            if not UserInventory.objects.filter(user=user, skin=skins_list[i % len(skins_list)]).exists():
+                UserInventory.objects.create(user=user, skin=skins_list[i % len(skins_list)])
 
         # 4. SEED POIS & RED ZONES (13 POIs, 5 Red Zones, 5 Check-ins)
         self.stdout.write("4. Seeding POIs, Red Zones & Check-ins...")
@@ -126,34 +141,35 @@ class Command(BaseCommand):
         ]
         created_pois = []
         for pdata in pois_data:
-            poi, _ = PointOfInterest.objects.get_or_create(name=pdata["name"], defaults=pdata)
+            poi = PointOfInterest.objects.filter(name=pdata["name"]).first()
+            if not poi:
+                poi = PointOfInterest.objects.create(**pdata)
             created_pois.append(poi)
 
         red_zones_data = [
-            {"name": "Narikala Steep Cliff", "name_en": "Narikala Steep Cliff", "center_latitude": 41.6872, "center_longitude": 44.8080, "radius_meters": 35, "warning_message": "Caution: Steep cliff zone near Narikala"},
-            {"name": "Mtkvari Rapid River Shore", "name_en": "Mtkvari Rapid River Shore", "center_latitude": 41.6938, "center_longitude": 44.8092, "radius_meters": 25, "warning_message": "Warning: Fast river current zone"},
-            {"name": "Mtatsminda Funicular Track", "name_en": "Mtatsminda Funicular Track", "center_latitude": 41.6930, "center_longitude": 44.7860, "radius_meters": 30, "warning_message": "Do not step on train tracks"},
-            {"name": "Turtle Lake Deep Shore", "name_en": "Turtle Lake Deep Shore", "center_latitude": 41.7061, "center_longitude": 44.7550, "radius_meters": 20, "warning_message": "Deep water zone"},
-            {"name": "Jvari Cliff Edge", "name_en": "Jvari Cliff Edge", "center_latitude": 41.8385, "center_longitude": 44.7335, "radius_meters": 40, "warning_message": "High cliff edge hazard"},
+            {"name": "Narikala Steep Cliff", "name_en": "Narikala Steep Cliff", "latitude": 41.6872, "longitude": 44.8080, "radius_meters": 35},
+            {"name": "Mtkvari Rapid River Shore", "name_en": "Mtkvari Rapid River Shore", "latitude": 41.6938, "longitude": 44.8092, "radius_meters": 25},
+            {"name": "Mtatsminda Funicular Track", "name_en": "Mtatsminda Funicular Track", "latitude": 41.6930, "longitude": 44.7860, "radius_meters": 30},
+            {"name": "Turtle Lake Deep Shore", "name_en": "Turtle Lake Deep Shore", "latitude": 41.7061, "longitude": 44.7550, "radius_meters": 20},
+            {"name": "Jvari Cliff Edge", "name_en": "Jvari Cliff Edge", "latitude": 41.8385, "longitude": 44.7335, "radius_meters": 40},
         ]
         for rz in red_zones_data:
-            RedZone.objects.get_or_create(name=rz["name"], defaults=rz)
+            if not RedZone.objects.filter(name=rz["name"]).exists():
+                RedZone.objects.create(**rz)
 
         # Seed 5 CheckIns
         for i, user in enumerate(created_users):
-            CheckIn.objects.get_or_create(
-                user=user,
-                poi=created_pois[i % len(created_pois)],
-                defaults={"xp_earned": 50, "user_lat": created_pois[i % len(created_pois)].latitude, "user_lon": created_pois[i % len(created_pois)].longitude}
-            )
+            target_poi = created_pois[i % len(created_pois)]
+            if not CheckIn.objects.filter(user=user, poi=target_poi).exists():
+                CheckIn.objects.create(user=user, poi=target_poi, awarded_xp=50)
 
         # 5. SEED PARTNERS & COUPONS (5 Categories, 5 Partners, 5 Coupons)
         self.stdout.write("5. Seeding Partners & Discount Coupons...")
-        cat_rest, _ = Category.objects.get_or_create(name="Restaurant", defaults={"icon_name": "utensils"})
-        cat_wine, _ = Category.objects.get_or_create(name="Winery", defaults={"icon_name": "wine-glass"})
-        cat_hotel, _ = Category.objects.get_or_create(name="Hotel & Cafe", defaults={"icon_name": "hotel"})
-        cat_cafe, _ = Category.objects.get_or_create(name="Bakery & Cafe", defaults={"icon_name": "coffee"})
-        cat_activity, _ = Category.objects.get_or_create(name="Adventure & Tour", defaults={"icon_name": "compass"})
+        cat_rest = Category.objects.filter(name="Restaurant").first() or Category.objects.create(name="Restaurant", icon_name="utensils")
+        cat_wine = Category.objects.filter(name="Winery").first() or Category.objects.create(name="Winery", icon_name="wine-glass")
+        cat_hotel = Category.objects.filter(name="Hotel & Cafe").first() or Category.objects.create(name="Hotel & Cafe", icon_name="hotel")
+        cat_cafe = Category.objects.filter(name="Bakery & Cafe").first() or Category.objects.create(name="Bakery & Cafe", icon_name="coffee")
+        cat_activity = Category.objects.filter(name="Adventure & Tour").first() or Category.objects.create(name="Adventure & Tour", icon_name="compass")
 
         partners_data = [
             {"name": "Chateau Mukhrani Winery", "category": cat_wine, "latitude": 41.9408, "longitude": 44.5786, "offer_percentage": 20, "description": "Royal estate and wine degustation in Kartli.", "location_address": "Mukhrani, Kartli"},
@@ -163,10 +179,9 @@ class Command(BaseCommand):
             {"name": "Svaneti Zipline Extreme", "category": cat_activity, "latitude": 43.0450, "longitude": 42.7300, "offer_percentage": 25, "description": "Thrilling mountain zipline adventure over Mestia.", "location_address": "Mestia Center, Svaneti"},
         ]
         for part_data in partners_data:
-            partner, created = Partner.objects.get_or_create(name=part_data["name"], defaults=part_data)
-            if not created:
-                partner.offer_percentage = part_data["offer_percentage"]
-                partner.save()
+            partner = Partner.objects.filter(name=part_data["name"]).first()
+            if not partner:
+                partner = Partner.objects.create(**part_data)
             DiscountCoupon.objects.get_or_create(
                 partner=partner,
                 defaults={
@@ -180,21 +195,21 @@ class Command(BaseCommand):
         self.stdout.write("6. Seeding Quests, Quizzes & Submissions...")
         for poi in created_pois:
             DailyQuest.objects.get_or_create(
-                poi=poi,
+                target_poi=poi,
                 defaults={"title": f"Visit {poi.name}", "description": f"Visit {poi.name} and check in to claim rewards", "reward_xp": 50, "reward_coins": 25, "date_active": date.today()}
             )
             QuizQuestion.objects.get_or_create(
                 poi=poi,
                 question=f"რომელ საუკუნეში აშენდა {poi.name}?",
-                defaults={"option_a": "IV საუკუნე", "option_b": "VI საუკუნე", "option_c": "XI საუკუნე", "option_d": "XIX საუკუნე", "correct_index": 0}
+                defaults={"answer1": "IV საუკუნე", "answer2": "VI საუკუნე", "answer3": "XI საუკუნე", "answer4": "XIX საუკუნე", "correct_index": 0}
             )
 
         quests = list(DailyQuest.objects.all()[:5])
         for i, user in enumerate(created_users):
             if i < len(quests):
                 UserQuestProgress.objects.get_or_create(user=user, quest=quests[i], defaults={"progress": 1, "is_completed": True})
-                UserQuizSubmission.objects.get_or_create(user=user, poi=quests[i].poi, defaults={"score": 5})
-                UserPuzzleSubmission.objects.get_or_create(user=user, poi=quests[i].poi, defaults={"completion_time_seconds": 45, "moves_count": 12})
+                UserQuizSubmission.objects.get_or_create(user=user, poi=quests[i].target_poi, defaults={"score": 5})
+                UserPuzzleSubmission.objects.get_or_create(user=user, poi=quests[i].target_poi)
 
         # 7. SEED ECO MISSIONS & LANDMARKS & PROGRESS (5 Missions, 5 Landmarks, 5 Progresses)
         self.stdout.write("7. Seeding Eco Missions, Landmarks & User Progress...")
@@ -207,7 +222,9 @@ class Command(BaseCommand):
         ]
         created_eco_missions = []
         for eco in eco_missions_data:
-            m, _ = EcoMission.objects.get_or_create(mission_id=eco["mission_id"], defaults=eco)
+            m = EcoMission.objects.filter(mission_id=eco["mission_id"]).first()
+            if not m:
+                m = EcoMission.objects.create(**eco)
             created_eco_missions.append(m)
 
         for i, user in enumerate(created_users):
@@ -221,7 +238,8 @@ class Command(BaseCommand):
             {"name_ka": "ბათუმის ბულვარი", "name_en": "Batumi Boulevard", "category": "modern", "address": "ბათუმი", "latitude": 41.6500, "longitude": 41.6333},
         ]
         for lm in landmarks_data:
-            Landmark.objects.get_or_create(name_ka=lm["name_ka"], defaults=lm)
+            if not Landmark.objects.filter(name_ka=lm["name_ka"]).exists():
+                Landmark.objects.create(**lm)
 
         # 8. SEED SOCIAL FRIENDSHIPS, ACTIVITIES & PVP CHALLENGES (5 Each)
         self.stdout.write("8. Seeding Social Friendships, Feed & 5 PvP Challenges...")
