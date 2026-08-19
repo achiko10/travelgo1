@@ -225,8 +225,9 @@ else:
         }
     }
 
-# ─── Email ─────────────────────────────────────────────────────────────────────
-# MVP: Console-ში ბეჭდავს მეილს (Redis PIN-ი მოქმედებს).
-# Production-ში: EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# ─── Email & Resend ────────────────────────────────────────────────────────────
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'support@travelgo.ge'
+
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'TravelGo <onboarding@resend.dev>')
