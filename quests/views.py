@@ -1,7 +1,16 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import DailyQuest, UserQuestProgress
-from .serializers import DailyQuestSerializer, UserQuestProgressSerializer
+from django.db import transaction
+from django.contrib.auth import get_user_model
+
+from .models import DailyQuest, UserQuestProgress, QuizQuestion, UserQuizSubmission, UserPuzzleSubmission
+from .serializers import DailyQuestSerializer, UserQuestProgressSerializer, QuizQuestionSerializer
+from maps.models import PointOfInterest
+
+User = get_user_model()
 
 class ActiveQuestsList(generics.ListAPIView):
     """
@@ -21,6 +30,72 @@ class MyQuestProgress(generics.ListAPIView):
 
     def get_queryset(self):
         return UserQuestProgress.objects.filter(user=self.request.user)
+
+
+def increment_user_quest_progress(user, target_poi=None, count=1):
+    """
+    ავტომატურად უმატებს პროგრესს მომხმარებლის აქტიურ ქვესთებს
+    (მაგ. Check-in-ის, ქვიზის ან ეკო მისიის შესრულებისას).
+    """
+    from django.db.models import Q
+    today = timezone.now().date()
+    active_quests = DailyQuest.objects.filter(Q(date_active=today) | Q(date_active__isnull=True))
+    
+    if target_poi:
+        active_quests = active_quests.filter(Q(target_poi=target_poi) | Q(target_poi__isnull=True))
+    else:
+        active_quests = active_quests.filter(target_poi__isnull=True)
+
+    for quest in active_quests:
+        progress_obj, _ = UserQuestProgress.objects.get_or_create(user=user, quest=quest)
+        if not progress_obj.is_completed:
+            progress_obj.progress += count
+            if progress_obj.progress >= quest.required_checkins:
+                progress_obj.progress = quest.required_checkins
+                progress_obj.is_completed = True
+            progress_obj.save()
+
+
+class ClaimQuestRewardView(APIView):
+    """
+    POST /api/quests/claim/
+    Request Body: {"quest_id": 1}
+    ჯილდოს (XP/Coins) დარიცხვა დასრულებული ქვესთისთვის.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        quest_id = request.data.get('quest_id')
+        if not quest_id:
+            return Response({"error": "quest_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        quest = get_object_or_404(DailyQuest, id=quest_id)
+        progress_obj = get_object_or_404(UserQuestProgress, user=request.user, quest=quest)
+
+        if not progress_obj.is_completed:
+            return Response({"error": "ქვესთი ჯერ არ არის დასრულებული"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if progress_obj.is_claimed:
+            return Response({"message": "პრიზი უკვე აღებული გაქვთ"}, status=status.HTTP_200_OK)
+
+        with transaction.atomic():
+            progress_obj.is_claimed = True
+            progress_obj.save(update_fields=['is_claimed'])
+
+            locked_user = User.objects.select_for_update().get(pk=request.user.pk)
+            locked_user.xp += quest.reward_xp
+            locked_user.coins += quest.reward_coins
+            locked_user.level = locked_user.calculate_level()
+            locked_user.save(update_fields=['xp', 'coins', 'level'])
+
+        return Response({
+            "success": True,
+            "reward_xp": quest.reward_xp,
+            "reward_coins": quest.reward_coins,
+            "total_xp": locked_user.xp,
+            "total_coins": locked_user.coins,
+            "level": locked_user.level
+        }, status=status.HTTP_200_OK)
 
 
 from rest_framework.views import APIView
@@ -94,6 +169,12 @@ class QuizSubmitView(APIView):
             locked_user.xp += 100
             locked_user.level = locked_user.calculate_level()
             locked_user.save(update_fields=['coins', 'xp', 'level'])
+
+            # Daily Quests პროგრესის განახლება
+            try:
+                increment_user_quest_progress(user=user, target_poi=poi, count=1)
+            except Exception:
+                pass
             
         user.refresh_from_db()
         return Response({

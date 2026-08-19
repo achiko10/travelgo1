@@ -34,6 +34,7 @@ class UserQuestProgress(models.Model):
     quest = models.ForeignKey(DailyQuest, on_delete=models.CASCADE)
     progress = models.PositiveIntegerField(default=0)
     is_completed = models.BooleanField(default=False)
+    is_claimed = models.BooleanField(default=False, verbose_name="პრიზი აღებულია")
 
     class Meta:
         constraints = [

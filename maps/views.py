@@ -168,6 +168,13 @@ class PerformCheckIn(APIView):
             locked_user.level = locked_user.calculate_level()
             locked_user.save(update_fields=['xp', 'level'])
 
+            # Daily Quests პროგრესის განახლება
+            try:
+                from quests.views import increment_user_quest_progress
+                increment_user_quest_progress(user=request.user, target_poi=poi, count=1)
+            except Exception as e:
+                pass
+
         request.user.refresh_from_db()
         
         msg = "Check-in successful! Reward Claimed."
