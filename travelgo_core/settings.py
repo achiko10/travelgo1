@@ -231,5 +231,6 @@ RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
 RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'TravelGo <onboarding@resend.dev>')
 
 # ─── Google Maps Platform ──────────────────────────────────────────────────────
-GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', 'AIzaSyB_EC_Wsa7fRNU9vnseUXr-hu8af7kfdn0')
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
+
 

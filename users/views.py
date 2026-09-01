@@ -136,19 +136,49 @@ class SocialLoginView(APIView):
                 'is_new':  created,
             }, status=status.HTTP_200_OK)
 
-        google_client_id = os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID")
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID", "51477845861-vtd3cdi51prn0rm1qn2cqpe54o5aqem1.apps.googleusercontent.com")
+        email = None
+        full_name = None
+
+        # 1. Try Google ID Token verification (JWT)
         try:
             idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), google_client_id)
-            email = idinfo['email']
+            email = idinfo.get('email')
+            full_name = idinfo.get('name')
+        except Exception:
+            # 2. Fallback: Verify as Google OAuth2 Access Token
+            try:
+                import requests as req
+                resp = req.get("https://www.googleapis.com/oauth2/v3/userinfo", headers={"Authorization": f"Bearer {token}"}, timeout=8)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    email = data.get('email')
+                    full_name = data.get('name')
+                else:
+                    t_resp = req.get(f"https://oauth2.googleapis.com/tokeninfo?access_token={token}", timeout=8)
+                    if t_resp.status_code == 200:
+                        email = t_resp.json().get('email')
+            except Exception as net_err:
+                return Response({'error': f'Google Auth network verification failed: {str(net_err)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not email:
+            return Response({'error': 'Google token is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
             user, created = CustomUser.objects.get_or_create(email=email)
+            if created:
+                user.username = email.split('@')[0]
+                user.full_name = full_name or email.split('@')[0]
+                user.is_email_verified = True
+                user.save(update_fields=['username', 'full_name', 'is_email_verified'])
             refresh = RefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
                 'access':  str(refresh.access_token),
                 'is_new':  created,
             }, status=status.HTTP_200_OK)
-        except ValueError:
-            return Response({'error': 'Invalid Google Token'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'Google Auth user creation failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PasswordResetRequestView(APIView):
