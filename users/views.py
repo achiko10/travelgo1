@@ -171,13 +171,8 @@ class SocialLoginView(APIView):
                 user = CustomUser.objects.create_user(
                     email=email,
                     full_name=full_name or email.split('@')[0],
-                    is_email_verified=True
                 )
                 created = True
-            else:
-                if not user.is_email_verified:
-                    user.is_email_verified = True
-                    user.save(update_fields=['is_email_verified'])
 
             refresh = RefreshToken.for_user(user)
             return Response({
