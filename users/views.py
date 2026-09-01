@@ -168,16 +168,9 @@ class SocialLoginView(APIView):
             user = CustomUser.objects.filter(email=email).first()
             created = False
             if not user:
-                base_username = email.split('@')[0]
-                username = base_username
-                counter = 1
-                while CustomUser.objects.filter(username=username).exists():
-                    username = f"{base_username}_{counter}"
-                    counter += 1
-                user = CustomUser.objects.create(
+                user = CustomUser.objects.create_user(
                     email=email,
-                    username=username,
-                    full_name=full_name or base_username,
+                    full_name=full_name or email.split('@')[0],
                     is_email_verified=True
                 )
                 created = True
