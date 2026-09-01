@@ -165,12 +165,27 @@ class SocialLoginView(APIView):
             return Response({'error': 'Google token is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user, created = CustomUser.objects.get_or_create(email=email)
-            if created:
-                user.username = email.split('@')[0]
-                user.full_name = full_name or email.split('@')[0]
-                user.is_email_verified = True
-                user.save(update_fields=['username', 'full_name', 'is_email_verified'])
+            user = CustomUser.objects.filter(email=email).first()
+            created = False
+            if not user:
+                base_username = email.split('@')[0]
+                username = base_username
+                counter = 1
+                while CustomUser.objects.filter(username=username).exists():
+                    username = f"{base_username}_{counter}"
+                    counter += 1
+                user = CustomUser.objects.create(
+                    email=email,
+                    username=username,
+                    full_name=full_name or base_username,
+                    is_email_verified=True
+                )
+                created = True
+            else:
+                if not user.is_email_verified:
+                    user.is_email_verified = True
+                    user.save(update_fields=['is_email_verified'])
+
             refresh = RefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
