@@ -21,7 +21,7 @@ class PartnerList(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        qs       = Partner.objects.all()
+        qs       = Partner.objects.select_related('category').prefetch_related('photos').all()
         category = self.request.query_params.get('category')
         if category:
             qs = qs.filter(category__id=category)

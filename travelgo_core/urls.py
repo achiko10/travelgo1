@@ -55,3 +55,12 @@ urlpatterns = [
     path('api/social/',    include('social.urls')),
     path('api/eco/',       include('eco_missions.urls')),
 ]
+
+# ── Media ფაილების სერვირება (PythonAnywhere / development) ───────────────────
+from django.conf.urls.static import static
+# PythonAnywhere free tier-ზე Django-ს თავადვე უწევს media სერვირება
+MEDIA_URL_VAL = getattr(settings, 'MEDIA_URL', '/media/')
+MEDIA_ROOT_VAL = getattr(settings, 'MEDIA_ROOT', None)
+if MEDIA_ROOT_VAL:
+    urlpatterns += static(MEDIA_URL_VAL, document_root=MEDIA_ROOT_VAL)
+

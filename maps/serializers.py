@@ -1,12 +1,36 @@
 from rest_framework import serializers
-from .models import PointOfInterest, RedZone
+from .models import PointOfInterest, POIPhoto, RedZone
 from travelgo_core.translation_utils import get_translated
+
+
+class POIPhotoSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    caption = serializers.SerializerMethodField()
+
+    class Meta:
+        model = POIPhoto
+        fields = ['id', 'image', 'caption', 'order']
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image:
+            url = obj.image.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return None
+
+    def get_caption(self, obj):
+        return get_translated(obj, 'caption', self.context.get('request'))
+
 
 class POISerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
     open_hours = serializers.SerializerMethodField()
     audio_guide = serializers.SerializerMethodField()
+    photo = serializers.SerializerMethodField()
+    photos = POIPhotoSerializer(many=True, read_only=True)
 
     checkin_count = serializers.SerializerMethodField()
     reward_badge_name = serializers.SerializerMethodField()
@@ -15,11 +39,12 @@ class POISerializer(serializers.ModelSerializer):
     class Meta:
         model = PointOfInterest
         fields = [
-            'id', 'name', 'description', 'photo', 'audio_guide',
+            'id', 'name', 'description', 'photo', 'photos', 'audio_guide',
             'open_hours', 'poi_type', 'latitude', 'longitude',
             'base_xp', 'reward_badge', 'reward_badge_name',
             'reward_skin', 'reward_skin_name',
-            'google_maps_link', 'checkin_count'
+            'google_maps_link', 'checkin_count',
+            'rating', 'review_count'
         ]
 
     def get_name(self, obj):
@@ -30,6 +55,15 @@ class POISerializer(serializers.ModelSerializer):
 
     def get_open_hours(self, obj):
         return get_translated(obj, 'open_hours', self.context.get('request'))
+
+    def get_photo(self, obj):
+        request = self.context.get('request')
+        if obj.photo:
+            url = obj.photo.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return None
 
     def get_audio_guide(self, obj):
         request = self.context.get('request')

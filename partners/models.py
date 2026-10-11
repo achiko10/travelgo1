@@ -39,12 +39,43 @@ class Partner(models.Model):
 
     offer_percentage = models.PositiveIntegerField(default=5, verbose_name="ფასდაკლების % (ან ბონუსი)")
 
+    # ── მარკეტინგული / საკონტაქტო ველები ──────────────────────────────────────
+    rating = models.DecimalField(max_digits=2, decimal_places=1, default=0.0,
+                                 verbose_name="შეფასება (0.0-5.0)")
+    review_count = models.PositiveIntegerField(default=0, verbose_name="შეფასებების რაოდენობა")
+    phone = models.CharField(max_length=30, blank=True, verbose_name="ტელეფონი")
+    website = models.URLField(blank=True, verbose_name="ვებსაიტი")
+    working_hours = models.CharField(max_length=150, blank=True,
+                                     verbose_name="სამუშაო საათები (KA)")
+    working_hours_en = models.CharField(max_length=150, blank=True,
+                                        verbose_name="Working Hours (EN)")
+    price_range = models.CharField(max_length=50, blank=True,
+                                   verbose_name="ფასის დიაპაზონი (მაგ: ₾50-₾150)")
+
     class Meta:
         verbose_name = "პარტნიორი"
         verbose_name_plural = "პარტნიორები"
 
     def __str__(self):
         return f"{self.name} ({self.category.name})"
+
+
+class PartnerPhoto(models.Model):
+    """პარტნიორის გალერეის ფოტო — ადმინი ამატებს რამდენიც უნდა"""
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE,
+                                related_name='photos', verbose_name="პარტნიორი")
+    image = models.ImageField(upload_to='partners_photos/', verbose_name="ფოტო")
+    caption = models.CharField(max_length=200, blank=True, verbose_name="წარწერა (KA)")
+    caption_en = models.CharField(max_length=200, blank=True, verbose_name="Caption (EN)")
+    order = models.PositiveIntegerField(default=0, verbose_name="რიგითობა")
+
+    class Meta:
+        verbose_name = "პარტნიორის ფოტო"
+        verbose_name_plural = "პარტნიორის ფოტოები"
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"Photo #{self.order} — {self.partner.name}"
 
 
 class DiscountCoupon(models.Model):

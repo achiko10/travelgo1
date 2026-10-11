@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from .models import PointOfInterest, RedZone, CheckIn
+from .models import PointOfInterest, POIPhoto, RedZone, CheckIn
 from quests.models import DailyQuest
 
 
@@ -35,18 +35,34 @@ class POI_DailyQuestInline(admin.TabularInline):
         return False
 
 
+# ── Inline: ფოტო გალერეა ობიექტის გვერდზე ────────────────────────────────────
+class POIPhotoInline(admin.TabularInline):
+    model   = POIPhoto
+    extra   = 3
+    fields  = ('image', 'caption', 'caption_en', 'order', 'photo_preview')
+    readonly_fields = ('photo_preview',)
+    verbose_name        = "ფოტო"
+    verbose_name_plural = "📷 ფოტო გალერეა"
+
+    def photo_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="height:60px;border-radius:6px;" />', obj.image.url)
+        return "—"
+    photo_preview.short_description = "Preview"
+
+
 @admin.register(PointOfInterest)
 class PointOfInterestAdmin(admin.ModelAdmin):
-    inlines = [POI_CheckInInline, POI_DailyQuestInline]
+    inlines = [POIPhotoInline, POI_CheckInInline, POI_DailyQuestInline]
 
     """
     ლოკაციების (POI) მართვა — ადმინ ამატებს ლოკაციებს, რომლებიც
     Flutter Map-ზე გამოჩნდება და Check-in-ის სამიზნეა.
     """
     list_display = (
-        'name', 'poi_type', 'base_xp', 'latitude', 'longitude',
+        'name', 'poi_type', 'base_xp', 'rating', 'latitude', 'longitude',
         'open_hours', 'reward_badge', 'reward_skin', 'has_audio_guide',
-        'has_photo', 'checkin_count'
+        'has_photo', 'gallery_count', 'checkin_count'
     )
     list_filter = ('poi_type',)
     search_fields = ('name', 'description')
@@ -66,6 +82,9 @@ class PointOfInterestAdmin(admin.ModelAdmin):
         ('📸 მედია', {
             'fields': ('photo', 'photo_preview', 'audio_guide'),
         }),
+        ('⭐ შეფასება', {
+            'fields': ('rating', 'review_count'),
+        }),
         ('📊 სტატისტიკა', {
             'fields': ('checkin_count',),
         }),
@@ -83,6 +102,13 @@ class PointOfInterestAdmin(admin.ModelAdmin):
             return mark_safe('<span style="color:#2ecc71">&#128248; კი</span>')
         return mark_safe('<span style="color:#aaa">&#8212;</span>')
     has_photo.short_description = "ფოტო"
+
+    def gallery_count(self, obj):
+        count = obj.photos.count()
+        if count == 0:
+            return format_html('<span style="color:#aaa">{}</span>', '0 foto')
+        return format_html('<b style="color:#3498db">{}</b>', str(count) + ' foto')
+    gallery_count.short_description = "გალერეა"
 
     def checkin_count(self, obj):
         count = obj.checkins.count()

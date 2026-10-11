@@ -57,8 +57,31 @@ class PointOfInterest(models.Model):
     )
     google_maps_link = models.URLField(blank=True, verbose_name="Google Maps ლინკი")
 
+    # ── მარკეტინგული ველები ────────────────────────────────────────────────────
+    rating = models.DecimalField(max_digits=2, decimal_places=1, default=0.0,
+                                 verbose_name="შეფასება (0.0-5.0)")
+    review_count = models.PositiveIntegerField(default=0, verbose_name="შეფასებების რაოდენობა")
+
     def __str__(self):
         return f"{self.name} ({self.get_poi_type_display()})"
+
+
+class POIPhoto(models.Model):
+    """ობიექტის გალერეის ფოტო — ადმინი ამატებს რამდენიც უნდა"""
+    poi = models.ForeignKey(PointOfInterest, on_delete=models.CASCADE,
+                            related_name='photos', verbose_name="ობიექტი")
+    image = models.ImageField(upload_to='poi_photos/', verbose_name="ფოტო")
+    caption = models.CharField(max_length=200, blank=True, verbose_name="წარწერა (KA)")
+    caption_en = models.CharField(max_length=200, blank=True, verbose_name="Caption (EN)")
+    order = models.PositiveIntegerField(default=0, verbose_name="რიგითობა")
+
+    class Meta:
+        verbose_name = "ობიექტის ფოტო"
+        verbose_name_plural = "ობიექტის ფოტოები"
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"Photo #{self.order} — {self.poi.name}"
 
 
 class RedZone(models.Model):

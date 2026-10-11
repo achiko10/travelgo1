@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db import transaction
+from django.db import transaction, models
 from .models import Badge, Skin, UserInventory
 from .serializers import BadgeSerializer, SkinSerializer, UserInventorySerializer
 
@@ -31,13 +31,31 @@ class PurchaseItem(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        item_id = request.data.get('item_id')
+        item_type = request.data.get('item_type')
         item_name = request.data.get('item_name')
-        if not item_name:
-            return Response({"error": "Item name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if item is skin or badge
-        skin = Skin.objects.filter(name=item_name, is_for_sale=True).first()
-        badge = Badge.objects.filter(name=item_name, is_for_sale=True).first()
+        if not item_id and not item_name:
+            return Response({"error": "Item ID or name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        skin = None
+        badge = None
+
+        if item_id and item_type:
+            if item_type == 'skin':
+                skin = Skin.objects.filter(id=item_id, is_for_sale=True).first()
+            elif item_type == 'badge':
+                badge = Badge.objects.filter(id=item_id, is_for_sale=True).first()
+
+        if not skin and not badge and item_name:
+            # Check by Georgian name, English name, or case-insensitive match
+            skin = Skin.objects.filter(is_for_sale=True).filter(
+                models.Q(name__iexact=item_name) | models.Q(name_en__iexact=item_name)
+            ).first()
+            if not skin:
+                badge = Badge.objects.filter(is_for_sale=True).filter(
+                    models.Q(name__iexact=item_name) | models.Q(name_en__iexact=item_name)
+                ).first()
 
         if not skin and not badge:
             return Response({"error": "Item not found or not for sale"}, status=status.HTTP_404_NOT_FOUND)

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
-from .models import Category, Partner, DiscountCoupon
+from .models import Category, Partner, PartnerPhoto, DiscountCoupon
 
 
 # ── Inline: კუპონები პარტნიორის გვერდზე ──────────────────────────────────────
@@ -13,6 +13,22 @@ class DiscountCouponInline(admin.TabularInline):
     verbose_name        = "კუპონი"
     verbose_name_plural = "კუპონები"
     show_change_link    = True
+
+
+# ── Inline: ფოტო გალერეა პარტნიორის გვერდზე ─────────────────────────────────
+class PartnerPhotoInline(admin.TabularInline):
+    model   = PartnerPhoto
+    extra   = 3
+    fields  = ('image', 'caption', 'caption_en', 'order', 'photo_preview')
+    readonly_fields = ('photo_preview',)
+    verbose_name        = "ფოტო"
+    verbose_name_plural = "ფოტო გალერეა"
+
+    def photo_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" style="height:60px;border-radius:6px;" />', obj.image.url)
+        return "—"
+    photo_preview.short_description = "Preview"
 
 
 @admin.register(Category)
@@ -28,10 +44,11 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Partner)
 class PartnerAdmin(admin.ModelAdmin):
-    inlines     = [DiscountCouponInline]
+    inlines     = [PartnerPhotoInline, DiscountCouponInline]
     list_display = (
         'name', 'name_en', 'category', 'offer_percentage_display',
-        'location_address', 'active_coupon_count', 'has_logo'
+        'rating_display', 'location_address', 'active_coupon_count',
+        'photo_count', 'has_logo'
     )
     list_filter   = ('category',)
     search_fields = ('name', 'name_en', 'location_address', 'description')
@@ -48,7 +65,11 @@ class PartnerAdmin(admin.ModelAdmin):
             'fields': ('location_address', 'location_address_en', 'latitude', 'longitude')
         }),
         ('Shetavazeba / Offer', {
-            'fields': ('offer_percentage',)
+            'fields': ('offer_percentage', 'price_range')
+        }),
+        ('Shefaseba & Kontakti / Rating & Contact', {
+            'fields': ('rating', 'review_count', 'phone', 'website',
+                       'working_hours', 'working_hours_en')
         }),
     )
 
@@ -58,12 +79,26 @@ class PartnerAdmin(admin.ModelAdmin):
         return format_html('<b style="color:{}">{}</b>', color, str(pct) + '%')
     offer_percentage_display.short_description = "Fasdaleba %"
 
+    def rating_display(self, obj):
+        r = float(obj.rating)
+        color = '#2ecc71' if r >= 4.0 else '#f39c12' if r >= 3.0 else '#e74c3c'
+        stars = '⭐' * int(r)
+        return format_html('<b style="color:{}">{}</b> {}', color, r, stars)
+    rating_display.short_description = "Rating"
+
     def active_coupon_count(self, obj):
         count = obj.coupons.filter(status='active').count()
         if count == 0:
             return format_html('<span style="color:#aaa">{}</span>', '0 kuponi')
         return format_html('<b style="color:#2ecc71">{}</b>', str(count) + ' kuponi')
     active_coupon_count.short_description = "Aqtiuri Kuponevi"
+
+    def photo_count(self, obj):
+        count = obj.photos.count()
+        if count == 0:
+            return format_html('<span style="color:#aaa">{}</span>', '0 foto')
+        return format_html('<b style="color:#3498db">{}</b>', str(count) + ' foto')
+    photo_count.short_description = "Fotoebi"
 
     def has_logo(self, obj):
         if obj.logo:
